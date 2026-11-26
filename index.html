@@ -16,13 +16,16 @@
     border-radius:6px;font:14px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;cursor:pointer}
   .ctrl button:hover,.ctrl button:focus-visible{border-color:#ff6a3c;color:#fff;outline:none}
   body.idle .ctrl{opacity:0}
+  #fire{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3}
   body.idle{cursor:none}
 </style>
 </head>
 <body>
 <video id="v" src="video/jardin_digital.mp4" poster="assets/poster.jpg" autoplay muted loop playsinline preload="auto"
   aria-label="Jardín digital — 404: animación en bucle de 36 segundos"></video>
+<canvas id="fire" aria-hidden="true"></canvas>
 <div class="ctrl">
+  <button type="button" id="flm" aria-pressed="true" aria-label="Quitar llamas">🔥</button>
   <button type="button" id="play" aria-label="Pausa">❚❚</button>
   <button type="button" id="fs" aria-label="Pantalla completa" hidden>⛶</button>
 </div>
@@ -49,6 +52,68 @@
   // los botones se esconden si nadie toca la pantalla
   let t = 0; const wake = () => { document.body.classList.remove('idle'); clearTimeout(t); t = setTimeout(() => { if (!v.paused) document.body.classList.add('idle'); }, 2500); };
   ['pointermove', 'pointerdown', 'keydown'].forEach(ev => addEventListener(ev, wake)); wake();
+})();
+</script>
+<script>
+// ---------- Llamas sobre el video: suben desde el borde inferior de la imagen ----------
+(() => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const v = document.getElementById('v'), cv = document.getElementById('fire'), g = cv.getContext('2d'), btn = document.getElementById('flm');
+  let W = 0, H = 0, d = 1, last = performance.now(), T = 0, on = true;
+  function size() { d = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth || innerWidth; H = cv.clientHeight || innerHeight; cv.width = W * d; cv.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); }
+  size(); addEventListener('resize', size);
+  // rectángulo real del video dentro de la pantalla (object-fit: contain)
+  function box() {
+    const vw = v.videoWidth || 16, vh = v.videoHeight || 9, k = Math.min(W / vw, H / vh);
+    const w = vw * k, h = vh * k; return { l: (W - w) / 2, t: (H - h) / 2, r: (W + w) / 2, b: (H + h) / 2, w, h };
+  }
+  const sprite = (r, gg, b) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, `rgba(${r},${gg},${b},1)`); gr.addColorStop(.4, `rgba(${r},${gg},${b},.55)`); gr.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+    x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return c; };
+  const SPR = [sprite(255, 245, 200), sprite(255, 205, 90), sprite(255, 140, 40), sprite(235, 70, 20), sprite(150, 30, 10)];
+  const coarse = matchMedia('(pointer: coarse)').matches, PMAX = coarse ? 520 : 900, DENS = coarse ? .6 : 1;
+  const flames = [], embers = [];
+  const tongue = (x, t) => Math.max(0, .5 + .5 * Math.sin(x * .031 + t * 1.7) * Math.cos(x * .013 - t * .9 + 1.3));
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now; T += dt;
+    g.clearRect(0, 0, W, H);
+    const bx = box(), sc = Math.max(.6, Math.min(1.4, bx.h / 700));
+    if (on && !document.hidden) {
+      // lenguas de fuego desde abajo
+      const n = flames.length > PMAX ? 0 : Math.min(220, bx.w * 2.4 * dt * DENS);
+      for (let i = 0; i < n; i++) {
+        const x = bx.l + Math.random() * bx.w, tg = tongue(x / sc, T);
+        if (Math.random() > .25 + tg) continue;
+        flames.push({ x, y: bx.b + 6 + Math.random() * 4, vx: (Math.random() - .5) * 8, vy: -(190 * sc * (.4 + tg * 1.1) * (.75 + Math.random() * .4)),
+          r: (12 + Math.random() * 14) * (.55 + tg * .8) * 1.35 * sc, age: 0, life: .45 + Math.random() * .45 + tg * .45, ph: Math.random() * 6.28, w: 6 + Math.random() * 8 });
+      }
+      // brasas que suben por toda la imagen
+      while (embers.length < (coarse ? 40 : 70)) embers.push({ x: bx.l + Math.random() * bx.w, y: bx.b + Math.random() * 20, vx: (Math.random() - .5) * 14, vy: -(25 + Math.random() * 60),
+        s: Math.random() < .75 ? 2 : 3, life: 3 + Math.random() * 4, age: 0, ph: Math.random() * 6.28 });
+    }
+    g.globalCompositeOperation = 'lighter';
+    for (let i = flames.length - 1; i >= 0; i--) {
+      const p = flames[i]; p.age += dt;
+      if (p.age >= p.life) { flames.splice(i, 1); continue; }
+      p.vy -= 70 * dt; p.x += (p.vx + Math.sin(p.ph + p.age * 10) * p.w) * dt; p.y += p.vy * dt;
+      const k = p.age / p.life, rad = p.r * (1 - k * .75);
+      g.globalAlpha = (k < .12 ? k / .12 : 1) * (1 - k) * .6;
+      g.drawImage(SPR[Math.min(SPR.length - 1, Math.floor(k * SPR.length))], p.x - rad, p.y - rad, rad * 2, rad * 2);
+    }
+    g.globalAlpha = 1;
+    for (let i = embers.length - 1; i >= 0; i--) {
+      const p = embers[i]; p.age += dt;
+      if (p.age > p.life || p.y < bx.t - 10) { embers.splice(i, 1); continue; }
+      p.x += (p.vx + Math.sin(p.ph + p.age * 2.2) * 15) * dt; p.y += p.vy * dt;
+      const k = p.age / p.life, c = k < .3 ? '255,226,150' : k < .6 ? '255,160,60' : '230,80,25';
+      g.fillStyle = `rgba(${c},${((1 - k) * .85 * (.55 + .45 * Math.sin(p.ph * 3 + p.age * 18))).toFixed(3)})`;
+      g.fillRect(Math.round(p.x / p.s) * p.s, Math.round(p.y / p.s) * p.s, p.s, p.s);
+    }
+    g.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  btn.addEventListener('click', e => { e.stopPropagation(); on = !on; btn.setAttribute('aria-pressed', on); btn.setAttribute('aria-label', on ? 'Quitar llamas' : 'Poner llamas'); btn.style.opacity = on ? '' : '.45'; });
 })();
 </script>
 </body>
