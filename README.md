@@ -2,7 +2,7 @@
 
 Animación de 36 segundos a partir de una ilustración original. Combina un infierno estilo Bosco con interfaces cyberpunk.
 
-▶️ Video: [`video/jardin_digital.mp4`](video/jardin_digital.mp4)
+▶️ Verlo en línea: https://metafobian-code.github.io/serpientes/ · Video: [`video/jardin_digital.mp4`](video/jardin_digital.mp4)
 
 ## Qué pasa en el video
 
@@ -38,7 +38,9 @@ Las serpientes están en el jardín.
 ## Estructura
 
 ```
+index.html              página para ver el video en el navegador
 assets/src.png          imagen original (1672×941)
+assets/poster.jpg       portada mientras carga el video
 animate.py              loop de 12 s (efectos sobre la imagen)
 final.py                loop + ventana de texto (36 s)
 video/jardin_digital.mp4

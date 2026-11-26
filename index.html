@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Jardín digital — 404</title>
+<meta name="description" content="Animación a partir de una ilustración original: un infierno estilo Bosco con interfaces cyberpunk. Las serpientes están en el jardín.">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#000;overflow:hidden;color:#cfd6e6}
+  video{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#000;display:block}
+  .ctrl{position:fixed;right:12px;bottom:12px;display:flex;gap:8px;z-index:5;opacity:.8;transition:opacity .4s}
+  .ctrl:hover,.ctrl:focus-within{opacity:1}
+  .ctrl button{min-width:44px;height:44px;padding:0 14px;background:rgba(0,0,0,.6);color:#e6e6e6;border:1px solid rgba(255,255,255,.35);
+    border-radius:6px;font:14px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;cursor:pointer}
+  .ctrl button:hover,.ctrl button:focus-visible{border-color:#ff6a3c;color:#fff;outline:none}
+  body.idle .ctrl{opacity:0}
+  body.idle{cursor:none}
+</style>
+</head>
+<body>
+<video id="v" src="video/jardin_digital.mp4" poster="assets/poster.jpg" autoplay muted loop playsinline preload="auto"
+  aria-label="Jardín digital — 404: animación en bucle de 36 segundos"></video>
+<div class="ctrl">
+  <button type="button" id="play" aria-label="Pausa">❚❚</button>
+  <button type="button" id="fs" aria-label="Pantalla completa" hidden>⛶</button>
+</div>
+<script>
+(() => {
+  const v = document.getElementById('v'), play = document.getElementById('play'), fs = document.getElementById('fs');
+  const paint = () => { play.textContent = v.paused ? '▶' : '❚❚'; play.setAttribute('aria-label', v.paused ? 'Reproducir' : 'Pausa'); };
+  const toggle = () => { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } else v.pause(); };
+  play.addEventListener('click', e => { e.stopPropagation(); toggle(); });
+  v.addEventListener('click', toggle);
+  v.addEventListener('play', paint); v.addEventListener('pause', paint);
+  addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); toggle(); } });
+  // si el navegador no arrancó solo el video, arranca con el primer toque
+  v.addEventListener('canplay', () => { if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(paint); } }, { once: true });
+  // pantalla completa (no disponible en Safari de iPhone)
+  const de = document.documentElement, req = de.requestFullscreen || de.webkitRequestFullscreen;
+  if (req) {
+    fs.hidden = false;
+    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const pf = () => { fs.textContent = isFs() ? '✕' : '⛶'; fs.setAttribute('aria-label', isFs() ? 'Salir de pantalla completa' : 'Pantalla completa'); };
+    fs.addEventListener('click', e => { e.stopPropagation(); if (isFs()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); else { const p = req.call(de); if (p && p.catch) p.catch(() => {}); } });
+    document.addEventListener('fullscreenchange', pf); document.addEventListener('webkitfullscreenchange', pf);
+  }
+  // los botones se esconden si nadie toca la pantalla
+  let t = 0; const wake = () => { document.body.classList.remove('idle'); clearTimeout(t); t = setTimeout(() => { if (!v.paused) document.body.classList.add('idle'); }, 2500); };
+  ['pointermove', 'pointerdown', 'keydown'].forEach(ev => addEventListener(ev, wake)); wake();
+})();
+</script>
+</body>
+</html>
